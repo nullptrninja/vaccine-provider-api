@@ -17,6 +17,11 @@ const registeredProcessors = {
   'cvs': new CvsProcessor()
 };
 
+function denormalizeUrlPathParams(path) {
+  // Technically we can just url decode, but i wanted to keep the URLs looking cleaner for ease of use. So we do some light normalization here.
+  return path.replace('_', ' ');
+}
+
 // /available/*
 async function handleRouteAvailable(method, url, res) {
   var resultData = null;
@@ -26,13 +31,13 @@ async function handleRouteAvailable(method, url, res) {
 
     // Param 1 is the vaccination provider (e.g.: CVS, NYS, Walgreens, etc)
     let availabilitySourceName = regexRouteParam1.exec(url)[1].toLowerCase();
-    
-    // Param 2 is the state <required>
+
+    // Param 2 is the state <required>. This is the 2 character code. No spaces.
     let state = regexRouteParam2.exec(url)[1].toUpperCase();
 
-    // Param 3 is the city <optional>. Defaults to wild card if missing
+    // Param 3 is the city <optional>. Defaults to wild card if missing. Encoded (not URL, but our own) spaces may exist so we gotta denormalize them
     let parseCity = regexRouteParam3.exec(url);
-    let city = parseCity != null ? parseCity[1].toUpperCase() : '*';
+    let city = parseCity != null ? denormalizeUrlPathParams(parseCity[1].toUpperCase()) : '*';
 
     let filters = {
       state: state,
