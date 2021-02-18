@@ -1,9 +1,11 @@
 const http = require('http');
+const fs = require("fs");
 const CvsProcessor = require('./processors/cvsProcessor');
 const NysProcessor = require('./processors/nysProcessor');
 
+const settings = JSON.parse(fs.readFileSync('./production.settings.json'));
 const hostname = '127.0.0.1';
-const port = 3000;
+const port = settings.apiPort;
 
 const regexRootRoute = /^(\/[\w]+\/)*/
 const regexRouteParam1 = /^\/[\w]+\/([\w]+)/
@@ -11,7 +13,7 @@ const regexRouteParam2 = /^\/[\w]+\/[\w]+\/([\w]+)/
 const regexRouteParam3 = /^\/[\w]+\/[\w]+\/[\w]+\/([\w]+)/
 
 const routeTable = {
-  '/available/': handleRouteAvailable,
+  '/schedules/': handleRouteSchedules,
   '/list/': handleList
 };
 
@@ -26,11 +28,11 @@ function denormalizeUrlPathParams(path) {
 }
 
 // /available/*
-async function handleRouteAvailable(method, url, res) {
+async function handleRouteSchedules(method, url, res) {
   var resultData = null;
 
   if (method === 'GET') {
-    // /available/{VACCINE_PROVIDER}/{STATE}/{CITY}/
+    // /schedules/{VACCINE_PROVIDER}/{STATE}/{CITY}/
 
     // Param 1 is the vaccination provider (e.g.: CVS, NYS, Walgreens, etc)
     let availabilitySourceName = regexRouteParam1.exec(url)[1].toLowerCase();

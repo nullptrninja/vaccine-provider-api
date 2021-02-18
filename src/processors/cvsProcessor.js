@@ -79,7 +79,7 @@ class CvsProcessor extends BaseProcessor {
         // inputModel is one of the elements within the array inside of the <STATE> field
         var siteModel = new VaccinationSiteModel();
         siteModel.availableSlots = parseInt(inputModel.totalAvailable);
-        siteModel.hasAppointmentsAvailable = siteModel.availableSlots > 0;
+        siteModel.hasAppointmentsAvailable = inputModel.status === 'Available' || inputModel.availableSlots > 0;       // Slots don't always come back as non-zero when available
         siteModel.city = inputModel.city;
         siteModel.state = inputModel.state;
         siteModel.status = inputModel.status;
