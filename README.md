@@ -14,13 +14,13 @@ This was based on NodeJS' default HTTP project as a starting point, so for now i
 You can make HTTP calls to the following endpoints:
 
 ### Get vaccine appointments
-`/available/{provider}/{state}/{city}`  
+`/schedules/{provider}/{state}/{city}`  
 **provider**: one of the available provider names (see below). For example `cvs`  
 **state**: the 2-character state code. For example `ny`  
 **city**: (Optional) the name of a specific city that appears in the provider's vaccination site list. It's recommended you run without specifying `city` at first to see what cities are actually available. Specifying city will only show that city's appointment status. Cities with a space should use an underscore in place of the space.
   
 EXAMPLE:  
-`http://localhost:3000/available/cvs/ny/new_york`  
+`http://localhost:3000/schedules/cvs/ny/new_york`  
 
 ### List vaccine providers  
 `/list/providers`  
