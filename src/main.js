@@ -1,5 +1,6 @@
 const http = require('http');
 const CvsProcessor = require('./processors/cvsProcessor');
+const NysProcessor = require('./processors/nysProcessor');
 
 const hostname = '127.0.0.1';
 const port = 3000;
@@ -10,11 +11,13 @@ const regexRouteParam2 = /^\/[\w]+\/[\w]+\/([\w]+)/
 const regexRouteParam3 = /^\/[\w]+\/[\w]+\/[\w]+\/([\w]+)/
 
 const routeTable = {
-  '/available/': handleRouteAvailable
+  '/available/': handleRouteAvailable,
+  '/list/': handleList
 };
 
 const registeredProcessors = {
-  'cvs': new CvsProcessor()
+  'cvs': new CvsProcessor(),
+  'nys': new NysProcessor()
 };
 
 function denormalizeUrlPathParams(path) {
@@ -53,12 +56,33 @@ async function handleRouteAvailable(method, url, res) {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(resultData));
+    return;
   }
-  else {
-    res.statusCode = 404;
+  
+  res.statusCode = 404;
+  res.setHeader('Content-Type', 'application/json');
+  res.end('Not found');  
+}
+
+// /list/*
+async function handleList(method, url, res) {
+  if (method === 'GET') {
+    let topicName = regexRouteParam1.exec(url)[1].toLowerCase();
+
+    // /list/providers
+    if (topicName === 'providers') {
+      var providerNames = Object.getOwnPropertyNames(registeredProcessors);
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(providerNames));
+      return;
+    }
+  }
+
+  res.statusCode = 404;
     res.setHeader('Content-Type', 'application/json');
     res.end('Not found');
-  }
 }
 
 const server = http.createServer(async (req, res) => {
