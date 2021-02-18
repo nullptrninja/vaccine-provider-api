@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer');
 const _ = require('underscore');
+const moment = require('moment-timezone');
 const BaseProcessor = require('./baseProcessor');
 const ProcessorResult = require('../models/processorResult');
 const VaccinationSiteModel = require('../models/vaccinationSiteModel');
@@ -68,7 +69,7 @@ class CvsProcessor extends BaseProcessor {
         })
 
         var result = new ProcessorResult();
-        result.timestamp = payloadData.currentTime;
+        result.timestamp = moment.tz(payloadData.currentTime, 'MST').tz('EST').format('hh:mm A') + ' EST';      // CVS gives us mountain time
         result.siteData = outputModels;
 
         return result;
