@@ -34,11 +34,13 @@ async function handleRouteSchedules(method, url, res) {
   if (method === 'GET') {
     // /schedules/{VACCINE_PROVIDER}/{STATE}/{CITY}/
 
+    // TODO: Validate the regex results before continuing. Otherwise server go crashy
+
     // Param 1 is the vaccination provider (e.g.: CVS, NYS, Walgreens, etc)
-    let availabilitySourceName = regexRouteParam1.exec(url)[1].toLowerCase();
+    let availabilitySourceName = regexRouteParam1.exec(url)[1];
 
     // Param 2 is the state <required>. This is the 2 character code. No spaces.
-    let state = regexRouteParam2.exec(url)[1].toUpperCase();
+    let state = regexRouteParam2.exec(url)[1];
 
     // Param 3 is the city <optional>. Defaults to wild card if missing. Encoded (not URL, but our own) spaces may exist so we gotta denormalize them
     let parseCity = regexRouteParam3.exec(url);
@@ -55,10 +57,12 @@ async function handleRouteSchedules(method, url, res) {
       resultData = await proc.fetchVaccineInfo(filters);
     }
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(resultData));
-    return;
+    if (resultData) {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(resultData));
+      return;
+    }
   }
   
   res.statusCode = 404;
@@ -92,8 +96,16 @@ const server = http.createServer(async (req, res) => {
 
   var getRouteKey = regexRootRoute.exec(url);
   if (getRouteKey != null && getRouteKey.length > 1) {
+    // Verify route exists
     var routeKey = getRouteKey[1];
-    await routeTable[routeKey](method, url, res);
+    if (routeTable[routeKey]) {
+      await routeTable[routeKey](method, url, res);
+    }
+    else {
+      res.statusCode = 404;
+      res.setHeader('Content-Type', 'text/plain');
+      res.end('Route not found');
+    }
   }
   else {
     res.statusCode = 200;

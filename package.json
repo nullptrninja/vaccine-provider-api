@@ -4,8 +4,8 @@
   "description": "Retrieves vaccine appointment information from various provider sources",
   "main": "./src/main.js",
   "dependencies": {
+    "axios": "^0.21.1",
     "moment-timezone": "^0.5.33",
-    "puppeteer": "^7.1.0",
     "underscore": "^1.12.0"
   },
   "devDependencies": {},

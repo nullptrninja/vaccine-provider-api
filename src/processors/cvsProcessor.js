@@ -1,9 +1,27 @@
-const puppeteer = require('puppeteer');
+const axios = require('axios');
 const _ = require('underscore');
 const moment = require('moment-timezone');
 const BaseProcessor = require('./baseProcessor');
 const ProcessorResult = require('../models/processorResult');
 const VaccinationSiteModel = require('../models/vaccinationSiteModel');
+
+/* payload looks like:
+{
+    currentTime: string,
+    isBookingCompleted: bool, no idea what this is for
+    data: {
+        <STATE>: [
+            {
+                totalAvailable: int as string,
+                city: upper case string,
+                state: upper case string,
+                pctAvailable: 0.00% as string
+                status: string, e.g.: "Fully Booked"
+            }
+        ]
+    }
+}
+*/
 
 class CvsProcessor extends BaseProcessor {
     constructor() {
@@ -17,62 +35,38 @@ class CvsProcessor extends BaseProcessor {
         //   city: string, e.g.: "BETHPAGE" or "*" <optional>
 
         filters = _.pick(filters, 'state', 'city') || { state: 'NY' };
-        var state = filters.state.toUpperCase();
-        var city = filters.city ? filters.city.toUpperCase() : '*';
+        const state = filters.state.toUpperCase();
+        const city = filters.city ? filters.city.toUpperCase() : '*';
 
-        const queryUrl = this._queryUrlTemplate.replace('{{STATE}}', state);
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],   // We'll be running in isolated container so no-sandbox maybe is ok?
-        });
+        const queryUrl = this._queryUrlTemplate.replace('{{STATE}}', state);        
+        const result = await axios.get(queryUrl);
 
-        const page = await browser.newPage();
-        await page.goto(queryUrl);
+        if (result.status === 200) {            
+            const payloadData = result.data.responsePayloadData;
+            var stateDataArray = payloadData.data[state];
 
-        var content = await page.evaluate(() => {
-            return JSON.parse(document.querySelector("body").innerText);
-        });
+            // Apply filter if needed
+            if (city != '*') {
+                stateDataArray = _.filter(stateDataArray, function(d) {
+                    return d.city.toUpperCase() === city;
+                });
+            }
 
-        await browser.close();
+            const self = this;
+            const outputModels = _.map(stateDataArray, function (o) {
+                return self.transformToSiteModel(o);
+            })
 
-        var payloadData = content.responsePayloadData;
-        var stateDataArray = payloadData.data[state];
+            var procResult = new ProcessorResult();
+            procResult.timestamp = moment.tz(payloadData.currentTime, 'MST').tz('EST').format('hh:mm A') + ' EST';      // CVS gives us mountain time
+            procResult.siteData = outputModels;
 
-        // Apply filter if needed
-        if (city != '*') {
-            stateDataArray = _.filter(stateDataArray, function(d) {
-                return d.city.toUpperCase() === city;
-            });
+            return procResult;
         }
 
-        /* payload looks like:
-          {
-              currentTime: string,
-              isBookingCompleted: bool, no idea what this is for
-              data: {
-                  <STATE>: [
-                      {
-                          totalAvailable: int as string,
-                          city: upper case string,
-                          state: upper case string,
-                          pctAvailable: 0.00% as string
-                          status: string, e.g.: "Fully Booked"
-                      }
-                  ]
-              }
-          }
-        */
-
-        var self = this;
-        var outputModels = _.map(stateDataArray, function (o) {
-            return self.transformToSiteModel(o);
-        })
-
-        var result = new ProcessorResult();
-        result.timestamp = moment.tz(payloadData.currentTime, 'MST').tz('EST').format('hh:mm A') + ' EST';      // CVS gives us mountain time
-        result.siteData = outputModels;
-
-        return result;
+        // Sorry.
+        // Main will check for truthy result and handle accordingly
+        return null;
     }
 
     transformToSiteModel(inputModel) {
