@@ -1,9 +1,21 @@
-const puppeteer = require('puppeteer');
+const axios = require('axios');
 const _ = require('underscore');
 const BaseProcessor = require('./baseProcessor');
 const ProcessorResult = require('../models/processorResult');
 const VaccinationSiteModel = require('../models/vaccinationSiteModel');
 
+/* payload looks like:
+    {
+        lastUpdated: "MM/dd/YYYY HH:mm:ss AM/PM"
+        providerList: [
+        {
+            providerName: string
+            address: string, "CITY, NY"
+            availableAppointments: "NAC" | "AA"
+        }
+    ]
+    }
+*/
 class NysProcessor extends BaseProcessor {
     constructor() {
         super();
@@ -18,53 +30,32 @@ class NysProcessor extends BaseProcessor {
         var city = filters.city ? filters.city.toUpperCase() : '*';
 
         const queryUrl = this._queryUrlTemplate;
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],   // We'll be running in isolated container so no-sandbox maybe is ok?
-        });
+        const result = await axios.get(queryUrl);
 
-        const page = await browser.newPage();
-        await page.goto(queryUrl);
+        if (result.status === 200) {
+            const payloadData = result.data;
+            var siteArray = payloadData.providerList;
 
-        var content = await page.evaluate(() => {
-            return JSON.parse(document.querySelector("body").innerText);
-        });
+            // Apply filter if needed
+            if (city != '*') {
+                siteArray = _.filter(siteArray, function(d) {
+                    return d.address.toUpperCase().startsWith(city);
+                });
+            }
 
-        await browser.close();
+            var self = this;
+            var outputModels = _.map(siteArray, function (o) {
+                return self.transformToSiteModel(o);
+            })
 
-        var payloadData = content;
-        var siteArray = payloadData.providerList;
+            var procResult = new ProcessorResult();
+            procResult.timestamp = payloadData.lastUpdated;
+            procResult.siteData = outputModels;
 
-        // Apply filter if needed
-        if (city != '*') {
-            siteArray = _.filter(siteArray, function(d) {
-                return d.address.toUpperCase().startsWith(city);
-            });
+            return procResult;
         }
 
-        /* payload looks like:
-          {
-              lastUpdated: "MM/dd/YYYY HH:mm:ss AM/PM"
-              providerList: [
-                {
-                    providerName: string
-                    address: string, "CITY, NY"
-                    availableAppointments: "NAC" | "AA"
-                }
-            ]
-          }
-        */
-
-        var self = this;
-        var outputModels = _.map(siteArray, function (o) {
-            return self.transformToSiteModel(o);
-        })
-
-        var result = new ProcessorResult();
-        result.timestamp = payloadData.lastUpdated;
-        result.siteData = outputModels;
-
-        return result;
+        return null;
     }
 
     transformToSiteModel(inputModel) {

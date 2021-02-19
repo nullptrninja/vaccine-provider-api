@@ -7,9 +7,10 @@ In the quest to find various stubborn parents a vaccine appointment, it would be
 Installation steps (including docker support) are still WIP. For now you can do it manually:
 1. `npm install`
 2. `node ./src/main.js`
+3. (Optional) Modify `production.settings.json` and change the listening port as needed.
 
 ## Usage
-This was based on NodeJS' default HTTP project as a starting point, so for now it deploys to `localhost:3000`. We'll change that later.
+This was based on NodeJS' default HTTP project as a starting point, so for now it deploys to `localhost:3000` but the port is configurable.
 
 You can make HTTP calls to the following endpoints:
 
