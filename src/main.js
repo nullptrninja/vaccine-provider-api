@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require("fs");
 const CvsProcessor = require('./processors/cvsProcessor');
 const NysProcessor = require('./processors/nysProcessor');
+const NycProcessor = require('./processors/nycProcessor');
 
 const settings = JSON.parse(fs.readFileSync('./production.settings.json'));
 const hostname = '127.0.0.1';
@@ -19,7 +20,8 @@ const routeTable = {
 
 const registeredProcessors = {
   'cvs': new CvsProcessor(),
-  'nys': new NysProcessor()
+  'nys': new NysProcessor(),
+  'nyc': new NycProcessor()
 };
 
 function denormalizeUrlPathParams(path) {
