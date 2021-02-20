@@ -5,6 +5,7 @@
   "main": "./src/main.js",
   "dependencies": {
     "axios": "^0.21.1",
+    "cheerio": "^1.0.0-rc.5",
     "moment-timezone": "^0.5.33",
     "underscore": "^1.12.0"
   },
