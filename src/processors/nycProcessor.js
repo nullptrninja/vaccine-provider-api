@@ -30,9 +30,14 @@ class NycProcessor extends BaseProcessor {
         var city = filters.city ? filters.city.toUpperCase() : '*';
 
         const queryUrl = this._queryUrlTemplate;
-        const result = await axios.get(queryUrl);
 
-        if (result.status === 200) {
+        var result = await axios.get(queryUrl)
+        .catch(function(err) {
+            console.log(`fetchVaccineInfo threw error: ${err}`);
+            result = null;
+        });
+
+        if (result && result.status === 200) {
             // Cheerio experimental for now
             // const htmlData = result.data;
             // const $ = cheerio.load(htmlData);
