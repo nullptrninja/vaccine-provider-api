@@ -1,10 +1,11 @@
 const axios = require('axios');
-//const cheerio = require('cheerio');
+const cheerio = require('cheerio');
 const _ = require('underscore');
 const BaseProcessor = require('./baseProcessor');
 const ProcessorResult = require('../models/processorResult');
 const VaccinationSiteModel = require('../models/vaccinationSiteModel');
 
+const regexDataFragmentHash = /\/_next\/static\/([a-zA-Z0-9\_]+)\/_ssgManifest.js$/
 /* payload looks like:
     {
         name: string
@@ -18,8 +19,8 @@ const VaccinationSiteModel = require('../models/vaccinationSiteModel');
 class NycProcessor extends BaseProcessor {
     constructor() {
         super();
-        // Not sure if the hash in the URL is dynamically generated or not, but we'll find out soon enough
-        this._queryUrlTemplate = 'https://nycvaccinelist.com/_next/data/OGEuAf55KCDKYApu1V7h0/index.json';
+        this._htmlLandingPage = 'https://nycvaccinelist.com';
+        this._jsonUrlTemplate = 'https://nycvaccinelist.com/_next/data/{{HASH}}/index.json';
     }
 
     async fetchVaccineInfo(filters) {
@@ -29,43 +30,62 @@ class NycProcessor extends BaseProcessor {
         filters = _.pick(filters, 'city') || { city: '*' };        
         var city = filters.city ? filters.city.toUpperCase() : '*';
 
-        const queryUrl = this._queryUrlTemplate;
+        const queryUrl = this._htmlLandingPage;
 
         var result = await axios.get(queryUrl)
-        .catch(function(err) {
-            console.log(`fetchVaccineInfo threw error: ${err}`);
-            result = null;
-        });
+                                .catch(function(err) {
+                                    console.log(`fetchVaccineInfo threw error: ${err}`);
+                                    result = null;
+                                });
 
-        if (result && result.status === 200) {
-            // Cheerio experimental for now
-            // const htmlData = result.data;
-            // const $ = cheerio.load(htmlData);
-            // const embeddedJsonSiteList = $('script[id="__NEXT_DATA__"]').text();
-            // const payloadData = JSON.parse(embeddedJsonSiteList);
-            const payloadData = result.data;
+        if (result && result.status === 200) {            
+            const htmlData = result.data;
+            const $ = cheerio.load(htmlData);
+            const hintAttribute = $("script[src*='/_ssgManifest.js']");
 
-            if (payloadData && payloadData.pageProps) {
-                // Because of how dense this data set is, we'll only add locations with slots
-                var siteArray = payloadData.pageProps.locations.locationsWithSlots;
+            if (!hintAttribute || hintAttribute.length === 0) {
+                console.log('NYC Processor could not find hint attribute');
+                return null;
+            }
 
-                // Apply filter if needed
-                if (city != '*') {
-                    siteArray = _.filter(siteArray, function(d) {
-                        return d.borough_county.toUpperCase().startsWith(city);
-                    });
+            const srcText = hintAttribute[0].attribs.src;
+            const matches = regexDataFragmentHash.exec(srcText);
+
+            if (!matches || matches.length != 2) {
+                console.log('NYC Processor found an unexpected number of data fragment hashes in the HTML. Page may have changed.');
+                return null;
+            }
+            
+            const jsonQueryUrl = this._jsonUrlTemplate.replace('{{HASH}}', matches[1]);
+            const jsonFetchResult = await axios.get(jsonQueryUrl)
+                                                .catch(function(err){
+                                                    console.log(`Attempt to retrieve JSON feed using hash: ${matches[1]} failed: ${err}`)
+                                                    jsonFetchResult = null;
+                                                });
+
+            if (jsonFetchResult && jsonFetchResult.status == 200) {
+                if (jsonFetchResult.data) {
+                    // Because of how dense this data set is, we'll only add locations with slots
+                    var siteArray = jsonFetchResult.data.pageProps.locations.locationsWithSlots;
+
+                    // Apply filter if needed
+                    if (city != '*') {
+                        siteArray = _.filter(siteArray, function(d) {
+                            return d.borough_county.toUpperCase().startsWith(city);
+                        });
+                    }
+
+                    var self = this;
+                    var outputModels = _.map(siteArray, function (o) {
+                        return self.transformToSiteModel(o);
+                    })
+
+                    var procResult = new ProcessorResult();
+                    procResult.timestamp = 'Unavailable';
+                    procResult.siteData = outputModels;
+
+                    return procResult;
                 }
-
-                var self = this;
-                var outputModels = _.map(siteArray, function (o) {
-                    return self.transformToSiteModel(o);
-                })
-
-                var procResult = new ProcessorResult();
-                procResult.timestamp = 'Unavailable';
-                procResult.siteData = outputModels;
-
-                return procResult;
             }
         }
 
