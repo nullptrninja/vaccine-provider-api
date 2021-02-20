@@ -28,3 +28,4 @@ EXAMPLE:
 Shows a list of the currently supported vaccine providers. These are the current providers so far:  
 1. `cvs`: This is CVS Pharmacy
 2. `nys`: This is New York State's government managed list
+3. `nyc`: This is a list from https://nycvaccinelist.com for NYC sites with available appointments. We reduce their dataset significantly so go there if you want more detailed data.
