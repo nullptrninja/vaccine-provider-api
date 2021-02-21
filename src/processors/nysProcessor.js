@@ -30,9 +30,13 @@ class NysProcessor extends BaseProcessor {
         var city = filters.city ? filters.city.toUpperCase() : '*';
 
         const queryUrl = this._queryUrlTemplate;
-        const result = await axios.get(queryUrl);
+        const result = await axios.get(queryUrl)
+                                    .catch(function(err) {
+                                        console.log(`fetchVaccineInfo threw an error while fetching NYS data: ${err}`);
+                                        result = null;
+                                    });
 
-        if (result.status === 200) {
+        if (result && result.status === 200) {
             const payloadData = result.data;
             var siteArray = payloadData.providerList;
 
