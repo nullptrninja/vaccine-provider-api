@@ -39,9 +39,13 @@ class CvsProcessor extends BaseProcessor {
         const city = filters.city ? filters.city.toUpperCase() : '*';
 
         const queryUrl = this._queryUrlTemplate.replace('{{STATE}}', state);        
-        const result = await axios.get(queryUrl);
+        const result = await axios.get(queryUrl)
+                                    .catch(function(err) {
+                                        console.log(`fetchVaccineInfo threw an error while fetching CVS data: ${err}`);
+                                        result = null;
+                                    });
 
-        if (result.status === 200) {            
+        if (result && result.status === 200) {            
             const payloadData = result.data.responsePayloadData;
             var stateDataArray = payloadData.data[state];
 
