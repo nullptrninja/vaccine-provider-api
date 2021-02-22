@@ -17,8 +17,8 @@ const VaccinationSiteModel = require('../models/vaccinationSiteModel');
     }
 */
 class NysProcessor extends BaseProcessor {
-    constructor() {
-        super();
+    constructor(settings) {
+        super(settings);
         this._queryUrlTemplate = 'https://am-i-eligible.covid19vaccine.health.ny.gov/api/list-providers';
     }
 
@@ -29,16 +29,22 @@ class NysProcessor extends BaseProcessor {
         filters = _.pick(filters, 'city') || { city: '*' };        
         var city = filters.city ? filters.city.toUpperCase() : '*';
 
-        const queryUrl = this._queryUrlTemplate;
-        const result = await axios.get(queryUrl)
-                                    .catch(function(err) {
-                                        console.log(`fetchVaccineInfo threw an error while fetching NYS data: ${err}`);
-                                        result = null;
-                                    });
+        const cachedDataSet = super.getCachedDataSet();
+        var result = null;
 
-        if (result && result.status === 200) {
-            const payloadData = result.data;
+        if (!cachedDataSet) {
+            const queryUrl = this._queryUrlTemplate;
+            result = await axios.get(queryUrl)
+                                .catch(function(err) {
+                                    console.log(`fetchVaccineInfo threw an error while fetching NYS data: ${err}`);
+                                    result = null;
+                                });
+        }
+
+        if (cachedDataSet || (result && result.status === 200)) {
+            const payloadData = cachedDataSet || result.data;
             var siteArray = payloadData.providerList;
+            super.saveDataSet(payloadData);
 
             // Apply filter if needed
             if (city != '*') {

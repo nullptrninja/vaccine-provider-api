@@ -19,9 +19,9 @@ const routeTable = {
 };
 
 const registeredProcessors = {
-  'cvs': new CvsProcessor(),
-  'nys': new NysProcessor(),
-  'nyc': new NycProcessor()
+  'cvs': new CvsProcessor(settings),
+  'nys': new NysProcessor(settings),
+  'nyc': new NycProcessor(settings)
 };
 
 function denormalizeUrlPathParams(path) {

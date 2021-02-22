@@ -17,8 +17,8 @@ const regexDataFragmentHash = /\/_next\/static\/([a-zA-Z0-9\_]+)\/_ssgManifest.j
 */
 // Apologies in advance to nycvaccinelist.com, it was simply easier to pull from your already aggregated source
 class NycProcessor extends BaseProcessor {
-    constructor() {
-        super();
+    constructor(settings) {
+        super(settings);
         this._htmlLandingPage = 'https://nycvaccinelist.com';
         this._jsonUrlTemplate = 'https://nycvaccinelist.com/_next/data/{{HASH}}/index.json';
     }
@@ -31,7 +31,6 @@ class NycProcessor extends BaseProcessor {
         var city = filters.city ? filters.city.toUpperCase() : '*';
 
         const queryUrl = this._htmlLandingPage;
-
         var result = await axios.get(queryUrl)
                                 .catch(function(err) {
                                     console.log(`fetchVaccineInfo threw error: ${err}`);
@@ -56,36 +55,42 @@ class NycProcessor extends BaseProcessor {
                 return null;
             }
             
-            const jsonQueryUrl = this._jsonUrlTemplate.replace('{{HASH}}', matches[1]);
-            const jsonFetchResult = await axios.get(jsonQueryUrl)
-                                                .catch(function(err){
-                                                    console.log(`Attempt to retrieve JSON feed using hash: ${matches[1]} failed: ${err}`)
-                                                    jsonFetchResult = null;
-                                                });
+            const hashKey = matches[1];            
+            var jsonFetchResult = null;
+            const cachedDataSet = super.getCachedDataSet(hashKey);
 
-            if (jsonFetchResult && jsonFetchResult.status == 200) {
-                if (jsonFetchResult.data) {
-                    // Because of how dense this data set is, we'll only add locations with slots
-                    var siteArray = jsonFetchResult.data.pageProps.locations.locationsWithSlots;
+            if (!cachedDataSet) {
+                const jsonQueryUrl = this._jsonUrlTemplate.replace('{{HASH}}', hashKey);
+                jsonFetchResult = await axios.get(jsonQueryUrl)
+                                                    .catch(function(err){
+                                                        console.log(`Attempt to retrieve JSON feed using hash: ${hashKey} failed: ${err}`)
+                                                        jsonFetchResult = null;
+                                                    });
+            }
 
-                    // Apply filter if needed
-                    if (city != '*') {
-                        siteArray = _.filter(siteArray, function(d) {
-                            return d.borough_county.toUpperCase().startsWith(city);
-                        });
-                    }
+            if (cachedDataSet || (jsonFetchResult && jsonFetchResult.status == 200 && jsonFetchResult.data)) {                
+                // Because of how dense this data set is, we'll only add locations with slots
+                const payloadData = cachedDataSet || jsonFetchResult.data;
+                var siteArray = cachedDataSet || payloadData.pageProps.locations.locationsWithSlots;
+                super.saveDataSet(siteArray, hashKey);
 
-                    var self = this;
-                    var outputModels = _.map(siteArray, function (o) {
-                        return self.transformToSiteModel(o);
-                    })
-
-                    var procResult = new ProcessorResult();
-                    procResult.timestamp = 'Unavailable';
-                    procResult.siteData = outputModels;
-
-                    return procResult;
+                // Apply filter if needed
+                if (city != '*') {
+                    siteArray = _.filter(siteArray, function(d) {
+                        return d.borough_county.toUpperCase().startsWith(city);
+                    });
                 }
+
+                var self = this;
+                var outputModels = _.map(siteArray, function (o) {
+                    return self.transformToSiteModel(o);
+                })
+
+                var procResult = new ProcessorResult();
+                procResult.timestamp = 'Unavailable';
+                procResult.siteData = outputModels;
+
+                return procResult;
             }
         }
 

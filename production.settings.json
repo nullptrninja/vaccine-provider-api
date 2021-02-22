@@ -1,3 +1,5 @@
 {
-    "apiPort": 3000
+    "apiPort": 3000,
+    "enableDataSetCaching": true,
+    "dataSetCachingDurationSeconds": 60
 }
