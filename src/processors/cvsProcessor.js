@@ -24,8 +24,8 @@ const VaccinationSiteModel = require('../models/vaccinationSiteModel');
 */
 
 class CvsProcessor extends BaseProcessor {
-    constructor() {
-        super();
+    constructor(settings) {
+        super(settings);
         this._queryUrlTemplate = 'https://www.cvs.com/immunizations/covid-19-vaccine/immunizations/covid-19-vaccine.vaccine-status.{{STATE}}.json';
     }
 
@@ -38,16 +38,22 @@ class CvsProcessor extends BaseProcessor {
         const state = filters.state.toUpperCase();
         const city = filters.city ? filters.city.toUpperCase() : '*';
 
-        const queryUrl = this._queryUrlTemplate.replace('{{STATE}}', state);        
-        const result = await axios.get(queryUrl)
-                                    .catch(function(err) {
-                                        console.log(`fetchVaccineInfo threw an error while fetching CVS data: ${err}`);
-                                        result = null;
-                                    });
+        const cachedDataSet = super.getCachedDataSet();
+        var result = null;
 
-        if (result && result.status === 200) {            
-            const payloadData = result.data.responsePayloadData;
+        if (!cachedDataSet) {
+        const queryUrl = this._queryUrlTemplate.replace('{{STATE}}', state);
+            result = await axios.get(queryUrl)
+                                .catch(function(err) {
+                                    console.log(`fetchVaccineInfo threw an error while fetching CVS data: ${err}`);
+                                    result = null;
+                                });
+        }
+
+        if (cachedDataSet || result && result.status === 200) {            
+            const payloadData = cachedDataSet || result.data.responsePayloadData;
             var stateDataArray = payloadData.data[state];
+            super.saveDataSet(payloadData);
 
             // Apply filter if needed
             if (city != '*') {
